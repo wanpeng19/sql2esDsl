@@ -16,7 +16,7 @@
 		<elasticsearch.plugin.jvm>true</elasticsearch.plugin.jvm>
 		<elasticsearch.version>5.4.1</elasticsearch.version>
 		<elasticsearch.plugin.classname>org.elasticsearch.plugin.nlpcn.SqlPlug</elasticsearch.plugin.classname>
-		<jackson.version>2.6.1</jackson.version>
+		<jackson.version>2.10.0</jackson.version>
 	</properties>
 
 	<dependencies>
