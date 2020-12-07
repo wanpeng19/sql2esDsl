@@ -3,6 +3,7 @@ package com.wantest.es.sql2dsl.es4sql.query;
 import com.wantest.es.sql2dsl.es4sql.exception.SqlParseException;
 import com.wantest.es.sql2dsl.es4sql.domain.Query;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 /**
@@ -33,5 +34,5 @@ public abstract class MyQueryAction {
 	 * @return ActionRequestBuilder (ES request)
 	 * @throws SqlParseException
 	 */
-	public abstract String explain(boolean isExact) throws SqlParseException;
+	public abstract String explain(boolean isExact) throws SqlParseException, IOException;
 }

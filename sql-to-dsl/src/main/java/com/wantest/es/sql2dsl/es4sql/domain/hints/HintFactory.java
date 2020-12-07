@@ -4,6 +4,7 @@ package com.wantest.es.sql2dsl.es4sql.domain.hints;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLParser;
 import com.wantest.es.sql2dsl.es4sql.exception.SqlParseException;
+import org.elasticsearch.common.xcontent.DeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.yaml.YamlXContentParser;
 
@@ -98,7 +99,7 @@ public class HintFactory {
                 YAMLParser yamlParser = null;
                 try {
                 yamlParser = yamlFactory.createParser(heighlightParam.toCharArray());
-                YamlXContentParser yamlXContentParser = new YamlXContentParser(NamedXContentRegistry.EMPTY, yamlParser);
+                YamlXContentParser yamlXContentParser = new YamlXContentParser(NamedXContentRegistry.EMPTY, DeprecationHandler.IGNORE_DEPRECATIONS, yamlParser);
                 Map<String, Object> map = yamlXContentParser.map();
                 hintParams.add(map);
                 } catch (IOException e) {

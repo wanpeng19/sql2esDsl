@@ -13,6 +13,8 @@ import com.wantest.es.sql2dsl.es4sql.spatial.*;
 import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.common.geo.GeoPoint;
 import org.elasticsearch.common.geo.builders.ShapeBuilder;
+import org.elasticsearch.common.geo.parsers.ShapeParser;
+import org.elasticsearch.common.xcontent.DeprecationHandler;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.common.xcontent.ToXContent;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -203,29 +205,31 @@ public abstract class Maker {
         case GEO_DISTANCE_RANGE:
             RangeDistanceFilterParams rangeDistanceFilterParams = (RangeDistanceFilterParams) cond.getValue();
             fromPoint = rangeDistanceFilterParams.getFrom();
-            String distanceFrom = trimApostrophes(rangeDistanceFilterParams.getDistanceFrom());
             String distanceTo = trimApostrophes(rangeDistanceFilterParams.getDistanceTo());
-            x = QueryBuilders.geoDistanceRangeQuery(cond.getName(), fromPoint.getLat(), fromPoint.getLon()).from(distanceFrom).to(distanceTo);
+            x = QueryBuilders.geoDistanceQuery(cond.getName()).point(fromPoint.getLat(), fromPoint.getLon())
+					.distance(distanceTo);
             break;
         case GEO_POLYGON:
             PolygonFilterParams polygonFilterParams = (PolygonFilterParams) cond.getValue();
             ArrayList<GeoPoint> geoPoints = new ArrayList<GeoPoint>();
-            for(Point p : polygonFilterParams.getPolygon())
-                geoPoints.add(new GeoPoint(p.getLat(), p.getLon()));
+            for(Point p : polygonFilterParams.getPolygon()) {
+            	geoPoints.add(new GeoPoint(p.getLat(), p.getLon()));
+			}
             GeoPolygonQueryBuilder polygonFilterBuilder = QueryBuilders.geoPolygonQuery(cond.getName(),geoPoints);
             x = polygonFilterBuilder;
             break;
         case GEO_CELL:
-            CellFilterParams cellFilterParams = (CellFilterParams) cond.getValue();
-            Point geoHashPoint = cellFilterParams.getGeohashPoint();
-            GeoPoint geoPoint = new GeoPoint(geoHashPoint.getLat(),geoHashPoint.getLon());
-            x = QueryBuilders.geoHashCellQuery(cond.getName(),geoPoint).precision(cellFilterParams.getPrecision()).neighbors(cellFilterParams.isNeighbors());
+//            CellFilterParams cellFilterParams = (CellFilterParams) cond.getValue();
+//            Point geoHashPoint = cellFilterParams.getGeohashPoint();
+//            GeoPoint geoPoint = new GeoPoint(geoHashPoint.getLat(),geoHashPoint.getLon());
+//            x = QueryBuilders.geoHashCellQuery(cond.getName(),geoPoint).precision(cellFilterParams.getPrecision()).neighbors(cellFilterParams.isNeighbors());
             break;
         case NIN_TERMS:
         case IN_TERMS:
             Object[] termValues = (Object[]) value;
-            if(termValues.length == 1 && termValues[0] instanceof SubQueryExpression)
-                termValues = ((SubQueryExpression) termValues[0]).getValues();
+            if(termValues.length == 1 && termValues[0] instanceof SubQueryExpression){
+            	termValues = ((SubQueryExpression) termValues[0]).getValues();
+			}
             String[] termValuesStrings = new String[termValues.length];
             for (int i=0;i<termValues.length;i++){
                 termValuesStrings[i] = termValues[i].toString();
@@ -251,8 +255,9 @@ public abstract class Maker {
             x = QueryBuilders.idsQuery(type).addIds(ids);
         break;
         case NESTED_COMPLEX:
-            if(value == null || ! (value instanceof Where) )
-                throw new SqlParseException("unsupported nested condition");
+            if(value == null || ! (value instanceof Where) ) {
+            	throw new SqlParseException("unsupported nested condition");
+			}
 
             Where whereNested = (Where) value;
             BoolQueryBuilder nestedFilter = QueryMaker.explan(whereNested, isExact);
@@ -260,13 +265,14 @@ public abstract class Maker {
             x = QueryBuilders.nestedQuery(name, nestedFilter, ScoreMode.None);
         break;
         case CHILDREN_COMPLEX:
-            if(value == null || ! (value instanceof Where) )
-                throw new SqlParseException("unsupported nested condition");
+            if(value == null || ! (value instanceof Where) ) {
+            	throw new SqlParseException("unsupported nested condition");
+			}
 
             Where whereChildren = (Where) value;
             BoolQueryBuilder childrenFilter = QueryMaker.explan(whereChildren, isExact);
             //todo: pass score mode
-            x = QueryBuilders.hasChildQuery(name, childrenFilter,ScoreMode.None);
+//            x = QueryBuilders.hasChildQuery(name, childrenFilter,ScoreMode.None);
 
         break;
         case SCRIPT:
@@ -297,8 +303,12 @@ public abstract class Maker {
 
     private ShapeBuilder getShapeBuilderFromString(String str) throws IOException {
         String json;
-        if(str.contains("{")) json  = fixJsonFromElastic(str);
-        else json = WktToGeoJsonConverter.toGeoJson(trimApostrophes(str));
+        if(str.contains("{"))  {
+        	json  = fixJsonFromElastic(str);
+		}
+        else {
+        	json = WktToGeoJsonConverter.toGeoJson(trimApostrophes(str));
+		}
 
         return getShapeBuilderFromJson(json);
     }
@@ -316,9 +326,9 @@ public abstract class Maker {
 
     private ShapeBuilder getShapeBuilderFromJson(String json) throws IOException {
         XContentParser parser = null;
-        parser = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY, json);
+        parser = JsonXContent.jsonXContent.createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.IGNORE_DEPRECATIONS, json);
         parser.nextToken();
-        return ShapeBuilder.parse(parser);
+        return ShapeParser.parse(parser);
     }
 
     private String trimApostrophes(String str) {

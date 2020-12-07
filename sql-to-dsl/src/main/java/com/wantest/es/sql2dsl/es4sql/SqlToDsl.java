@@ -24,15 +24,15 @@ import java.util.Map;
  */
 public class SqlToDsl {
 
-    public static String toExactDsl(String sql) throws SqlParseException {
+    public static String toExactDsl(String sql) throws SqlParseException, IOException {
       return convert(sql, true);
     }
 
-    public static String toPhraseDsl(String sql) throws SqlParseException {
+    public static String toPhraseDsl(String sql) throws SqlParseException, IOException {
         return convert(sql, false);
     }
 
-    private static String convert(String sql, boolean isExact) throws SqlParseException {
+    private static String convert(String sql, boolean isExact) throws SqlParseException, IOException {
         Select select = toSelect(sql);
         MyQueryAction myQueryAction;
         if(select.isAgg){

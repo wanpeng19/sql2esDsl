@@ -1,16 +1,49 @@
 package com.wantest.es.sql2dsl.es4sql.parse;
 
-import com.alibaba.druid.sql.ast.*;
-import com.alibaba.druid.sql.ast.expr.*;
+import com.alibaba.druid.sql.ast.SQLCommentHint;
+import com.alibaba.druid.sql.ast.SQLDataType;
+import com.alibaba.druid.sql.ast.SQLExpr;
+import com.alibaba.druid.sql.ast.SQLLimit;
+import com.alibaba.druid.sql.ast.SQLName;
+import com.alibaba.druid.sql.ast.SQLOrderBy;
+import com.alibaba.druid.sql.ast.SQLOrderingSpecification;
+import com.alibaba.druid.sql.ast.expr.SQLAggregateExpr;
+import com.alibaba.druid.sql.ast.expr.SQLBinaryExpr;
+import com.alibaba.druid.sql.ast.expr.SQLBinaryOpExpr;
+import com.alibaba.druid.sql.ast.expr.SQLBinaryOperator;
+import com.alibaba.druid.sql.ast.expr.SQLCharExpr;
+import com.alibaba.druid.sql.ast.expr.SQLDefaultExpr;
+import com.alibaba.druid.sql.ast.expr.SQLExistsExpr;
+import com.alibaba.druid.sql.ast.expr.SQLHexExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIntegerExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIntervalExpr;
+import com.alibaba.druid.sql.ast.expr.SQLIntervalUnit;
+import com.alibaba.druid.sql.ast.expr.SQLMethodInvokeExpr;
+import com.alibaba.druid.sql.ast.expr.SQLNotExpr;
+import com.alibaba.druid.sql.ast.expr.SQLPropertyExpr;
+import com.alibaba.druid.sql.ast.expr.SQLUnaryExpr;
+import com.alibaba.druid.sql.ast.expr.SQLUnaryOperator;
+import com.alibaba.druid.sql.ast.expr.SQLVariantRefExpr;
 import com.alibaba.druid.sql.ast.statement.SQLAssignItem;
 import com.alibaba.druid.sql.ast.statement.SQLColumnDefinition;
+import com.alibaba.druid.sql.ast.statement.SQLForeignKeyImpl;
+import com.alibaba.druid.sql.ast.statement.SQLSelectGroupByClause;
+import com.alibaba.druid.sql.ast.statement.SQLSelectOrderByItem;
 import com.alibaba.druid.sql.dialect.mysql.ast.MySqlPrimaryKey;
 import com.alibaba.druid.sql.dialect.mysql.ast.MySqlUnique;
 import com.alibaba.druid.sql.dialect.mysql.ast.MysqlForeignKey;
-import com.alibaba.druid.sql.dialect.mysql.ast.expr.*;
-import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlSQLColumnDefinition;
+import com.alibaba.druid.sql.dialect.mysql.ast.expr.MySqlCharExpr;
+import com.alibaba.druid.sql.dialect.mysql.ast.expr.MySqlExtractExpr;
+import com.alibaba.druid.sql.dialect.mysql.ast.expr.MySqlMatchAgainstExpr;
+import com.alibaba.druid.sql.dialect.mysql.ast.expr.MySqlOutFileExpr;
+import com.alibaba.druid.sql.dialect.mysql.ast.expr.MySqlUserName;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlSelectQueryBlock;
-import com.alibaba.druid.sql.parser.*;
+import com.alibaba.druid.sql.parser.Lexer;
+import com.alibaba.druid.sql.parser.ParserException;
+import com.alibaba.druid.sql.parser.SQLExprParser;
+import com.alibaba.druid.sql.parser.SQLSelectParser;
+import com.alibaba.druid.sql.parser.Token;
 import com.alibaba.druid.util.JdbcConstants;
 
 import java.util.List;
@@ -76,6 +109,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
     }
 
 
+    @Override
     public SQLExpr primary() {
 
         if (lexer.token() == Token.LBRACE) {
@@ -150,7 +184,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
 
         // keep track of if the identifier is wrapped in parens
         if (parenWrapped && expr instanceof SQLIdentifierExpr) {
-            expr = new SQLParensIdentifierExpr((SQLIdentifierExpr) expr);
+            expr = (SQLIdentifierExpr) expr;
         }
 
         return expr;
@@ -159,10 +193,11 @@ public class ElasticSqlExprParser extends SQLExprParser {
     public static String[] AGGREGATE_FUNCTIONS = {"AVG", "COUNT", "GROUP_CONCAT", "MAX", "MIN", "STDDEV", "SUM"};
 
 
+    @Override
     public SQLExpr relationalRest(SQLExpr expr) {
         if (identifierEquals("REGEXP")) {
             lexer.nextToken();
-            SQLExpr rightExp = equality();
+            SQLExpr rightExp = relationalRest(bitOr());
 
             rightExp = relationalRest(rightExp);
 
@@ -172,6 +207,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return super.relationalRest(expr);
     }
 
+    @Override
     public SQLExpr multiplicativeRest(SQLExpr expr) {
         if (lexer.token() == Token.IDENTIFIER && "MOD".equalsIgnoreCase(lexer.stringVal())) {
             lexer.nextToken();
@@ -185,6 +221,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return super.multiplicativeRest(expr);
     }
 
+    @Override
     public SQLExpr notRationalRest(SQLExpr expr) {
         if (identifierEquals("REGEXP")) {
             lexer.nextToken();
@@ -255,6 +292,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
     }
 
 
+    @Override
     public final SQLExpr primaryRest(SQLExpr expr) {
         if (expr == null) {
             throw new IllegalArgumentException("expr");
@@ -377,7 +415,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
                 }
 
                 String unitVal = lexer.stringVal();
-                MySqlIntervalUnit unit = MySqlIntervalUnit.valueOf(unitVal.toUpperCase());
+                SQLIntervalUnit unit = SQLIntervalUnit.valueOf(unitVal.toUpperCase());
                 lexer.nextToken();
 
                 accept(Token.FROM);
@@ -593,10 +631,12 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return expr;
     }
 
+    @Override
     public SQLSelectParser createSelectParser() {
         return new ElasticSqlSelectParser(this);
     }
 
+    @Override
     protected SQLExpr parseInterval() {
         accept(Token.INTERVAL);
 
@@ -621,34 +661,36 @@ public class ElasticSqlExprParser extends SQLExprParser {
             String unit = lexer.stringVal();
             lexer.nextToken();
 
-            MySqlIntervalExpr intervalExpr = new MySqlIntervalExpr();
+            SQLIntervalExpr intervalExpr = new SQLIntervalExpr();
             intervalExpr.setValue(value);
-            intervalExpr.setUnit(MySqlIntervalUnit.valueOf(unit.toUpperCase()));
+            intervalExpr.setUnit(SQLIntervalUnit.valueOf(unit.toUpperCase()));
 
             return intervalExpr;
         }
     }
 
+    @Override
     public SQLColumnDefinition parseColumn() {
-        MySqlSQLColumnDefinition column = new MySqlSQLColumnDefinition();
+        SQLColumnDefinition column = new SQLColumnDefinition();
         column.setName(name());
         column.setDataType(parseDataType());
 
         return parseColumnRest(column);
     }
 
+    @Override
     public SQLColumnDefinition parseColumnRest(SQLColumnDefinition column) {
         if (lexer.token() == Token.ON) {
             lexer.nextToken();
             accept(Token.UPDATE);
             SQLExpr expr = this.expr();
-            ((MySqlSQLColumnDefinition) column).setOnUpdate(expr);
+            ((SQLColumnDefinition) column).setOnUpdate(expr);
         }
 
         if (identifierEquals("AUTO_INCREMENT")) {
             lexer.nextToken();
-            if (column instanceof MySqlSQLColumnDefinition) {
-                ((MySqlSQLColumnDefinition) column).setAutoIncrement(true);
+            if (column instanceof SQLColumnDefinition) {
+                ((SQLColumnDefinition) column).setAutoIncrement(true);
             }
             return parseColumnRest(column);
         }
@@ -664,8 +706,8 @@ public class ElasticSqlExprParser extends SQLExprParser {
         if (identifierEquals("STORAGE")) {
             lexer.nextToken();
             SQLExpr expr = expr();
-            if (column instanceof MySqlSQLColumnDefinition) {
-                ((MySqlSQLColumnDefinition) column).setStorage(expr);
+            if (column instanceof SQLColumnDefinition) {
+                ((SQLColumnDefinition) column).setStorage(expr);
             }
         }
 
@@ -674,6 +716,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return column;
     }
 
+    @Override
     protected SQLDataType parseDataTypeRest(SQLDataType dataType) {
         super.parseDataTypeRest(dataType);
 
@@ -690,6 +733,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return dataType;
     }
 
+    @Override
     public SQLExpr orRest(SQLExpr expr) {
 
         for (; ; ) {
@@ -711,6 +755,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return expr;
     }
 
+    @Override
     public SQLExpr additiveRest(SQLExpr expr) {
         if (lexer.token() == Token.PLUS) {
             lexer.nextToken();
@@ -729,6 +774,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return expr;
     }
 
+    @Override
     public SQLAssignItem parseAssignItem() {
         SQLAssignItem item = new SQLAssignItem();
 
@@ -773,6 +819,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return item;
     }
 
+    @Override
     public SQLName nameRest(SQLName name) {
         if (lexer.token() == Token.VARIANT && "@".equals(lexer.stringVal())) {
             lexer.nextToken();
@@ -790,11 +837,12 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return super.nameRest(name);
     }
 
-    public MySqlSelectQueryBlock.Limit parseLimit() {
+    @Override
+    public SQLLimit parseLimit() {
         if (lexer.token() == Token.LIMIT) {
             lexer.nextToken();
 
-            MySqlSelectQueryBlock.Limit limit = new MySqlSelectQueryBlock.Limit();
+            SQLLimit limit = new SQLLimit();
 
             SQLExpr temp = this.expr();
             if (lexer.token() == (Token.COMMA)) {
@@ -829,7 +877,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
 
         accept(Token.LPAREN);
         for (; ; ) {
-            primaryKey.getColumns().add(this.expr());
+            primaryKey.getColumns().add(this.parseSelectOrderByItem());
             if (!(lexer.token() == (Token.COMMA))) {
                 break;
             } else {
@@ -841,6 +889,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return primaryKey;
     }
 
+    @Override
     public MySqlUnique parseUnique() {
         accept(Token.UNIQUE);
 
@@ -856,12 +905,12 @@ public class ElasticSqlExprParser extends SQLExprParser {
 
         if (lexer.token() != Token.LPAREN) {
             SQLName indexName = name();
-            unique.setIndexName(indexName);
+            unique.setName(indexName);
         }
 
         accept(Token.LPAREN);
         for (; ; ) {
-            unique.getColumns().add(this.expr());
+            unique.getColumns().add(this.parseSelectOrderByItem());
             if (!(lexer.token() == (Token.COMMA))) {
                 break;
             } else {
@@ -879,6 +928,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return unique;
     }
 
+    @Override
     public MysqlForeignKey parseForeignKey() {
         accept(Token.FOREIGN);
         accept(Token.KEY);
@@ -915,9 +965,9 @@ public class ElasticSqlExprParser extends SQLExprParser {
         if (lexer.token() == Token.ON) {
             lexer.nextToken();
             if (lexer.token() == Token.DELETE) {
-                fk.setReferenceOn(MysqlForeignKey.On.DELETE);
+                fk.setOnDelete(SQLForeignKeyImpl.Option.CASCADE);
             } else if (lexer.token() == Token.UPDATE) {
-                fk.setReferenceOn(MysqlForeignKey.On.UPDATE);
+                fk.setOnUpdate(SQLForeignKeyImpl.Option.RESTRICT);
             } else {
                 throw new ParserException("syntax error, expect DELETE or UPDATE, actual " + lexer.token() + " "
                         + lexer.stringVal());
@@ -925,16 +975,16 @@ public class ElasticSqlExprParser extends SQLExprParser {
             lexer.nextToken();
 
             if (lexer.token() == Token.RESTRICT) {
-                fk.setReferenceOption(MysqlForeignKey.Option.RESTRICT);
+                fk.setOnDelete(MysqlForeignKey.Option.RESTRICT);
             } else if (identifierEquals("CASCADE")) {
-                fk.setReferenceOption(MysqlForeignKey.Option.CASCADE);
+                fk.setOnDelete(MysqlForeignKey.Option.CASCADE);
             } else if (lexer.token() == Token.SET) {
                 accept(Token.NULL);
-                fk.setReferenceOption(MysqlForeignKey.Option.SET_NULL);
+                fk.setOnDelete(MysqlForeignKey.Option.SET_NULL);
             } else if (identifierEquals("ON")) {
                 lexer.nextToken();
                 if (identifierEquals("ACTION")) {
-                    fk.setReferenceOption(MysqlForeignKey.Option.NO_ACTION);
+                    fk.setOnDelete(MysqlForeignKey.Option.NO_ACTION);
                 } else {
                     throw new ParserException("syntax error, expect ACTION, actual " + lexer.token() + " "
                             + lexer.stringVal());
@@ -945,6 +995,7 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return fk;
     }
 
+    @Override
     protected SQLAggregateExpr parseAggregateExprRest(SQLAggregateExpr aggregateExpr) {
         if (lexer.token() == Token.ORDER) {
             SQLOrderBy orderBy = this.parseOrderBy();
@@ -960,17 +1011,16 @@ public class ElasticSqlExprParser extends SQLExprParser {
         return aggregateExpr;
     }
 
-    public MySqlSelectGroupByExpr parseSelectGroupByItem() {
-        MySqlSelectGroupByExpr item = new MySqlSelectGroupByExpr();
-
-        item.setExpr(expr());
+    public SQLSelectGroupByClause parseSelectGroupByItem() {
+        SQLSelectGroupByClause item = new SQLSelectGroupByClause();
+        item.addItem(expr());
 
         if (lexer.token() == Token.ASC) {
             lexer.nextToken();
-            item.setType(SQLOrderingSpecification.ASC);
+//            item.setType(SQLOrderingSpecification.ASC);
         } else if (lexer.token() == Token.DESC) {
             lexer.nextToken();
-            item.setType(SQLOrderingSpecification.DESC);
+//            item.setType(SQLOrderingSpecification.DESC);
         }
 
         return item;

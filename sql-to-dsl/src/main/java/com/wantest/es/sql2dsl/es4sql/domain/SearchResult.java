@@ -9,8 +9,8 @@ import java.util.Map.Entry;
 
 import com.wantest.es.sql2dsl.es4sql.exception.SqlParseException;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
@@ -19,8 +19,8 @@ import org.elasticsearch.search.aggregations.bucket.terms.InternalTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.LongTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms.Bucket;
 import org.elasticsearch.search.aggregations.metrics.InternalNumericMetricsAggregation;
-import org.elasticsearch.search.aggregations.metrics.tophits.InternalTopHits;
-import org.elasticsearch.search.aggregations.metrics.valuecount.InternalValueCount;
+import org.elasticsearch.search.aggregations.metrics.InternalTopHits;
+import org.elasticsearch.search.aggregations.metrics.InternalValueCount;
 
 public class SearchResult {
 	/**
@@ -34,13 +34,13 @@ public class SearchResult {
 
 	public SearchResult(SearchResponse resp) {
 		SearchHits hits = resp.getHits();
-		this.total = hits.getTotalHits();
+		this.total = hits.getTotalHits().value;
 		results = new ArrayList<>(hits.getHits().length);
 		for (SearchHit searchHit : hits.getHits()) {
-			if (searchHit.getSource() != null) {
-				results.add(searchHit.getSource());
+			if (searchHit.getSourceAsString() != null) {
+				results.add(searchHit.getSourceAsMap());
 			} else if (searchHit.getFields() != null) {
-				Map<String, SearchHitField> fields = searchHit.getFields();
+				Map<String, DocumentField> fields = searchHit.getFields();
 				results.add(toFieldsMap(fields));
 			}
 
@@ -81,9 +81,9 @@ public class SearchResult {
 	 * @param fields
 	 * @return
 	 */
-	private Map<String, Object> toFieldsMap(Map<String, SearchHitField> fields) {
+	private Map<String, Object> toFieldsMap(Map<String, DocumentField> fields) {
 		Map<String, Object> result = new HashMap<>();
-		for (Entry<String, SearchHitField> entry : fields.entrySet()) {
+		for (Entry<String, DocumentField> entry : fields.entrySet()) {
 			if (entry.getValue().getValues().size() > 1) {
 				result.put(entry.getKey(), entry.getValue().getValues());
 			} else {

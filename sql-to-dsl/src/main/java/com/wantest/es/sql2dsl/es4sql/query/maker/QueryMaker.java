@@ -8,6 +8,7 @@ import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.join.query.HasChildQueryBuilder;
 
 public class QueryMaker extends Maker {
 
@@ -64,7 +65,7 @@ public class QueryMaker extends Maker {
             if(condition.isNested()){
                 subQuery = QueryBuilders.nestedQuery(condition.getNestedPath(), subQuery, ScoreMode.None);
             } else if(condition.isChildren()) {
-            	subQuery = QueryBuilders.hasChildQuery(condition.getChildType(), subQuery, ScoreMode.None);
+            	subQuery = new HasChildQueryBuilder(condition.getChildType(), subQuery, ScoreMode.None);
             }
         }
 

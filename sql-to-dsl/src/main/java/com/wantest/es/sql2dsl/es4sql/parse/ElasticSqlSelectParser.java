@@ -1,15 +1,14 @@
 package com.wantest.es.sql2dsl.es4sql.parse;
 
 import com.alibaba.druid.sql.ast.SQLExpr;
+import com.alibaba.druid.sql.ast.SQLLimit;
 import com.alibaba.druid.sql.ast.SQLSetQuantifier;
 import com.alibaba.druid.sql.ast.expr.SQLIdentifierExpr;
 import com.alibaba.druid.sql.ast.expr.SQLLiteralExpr;
 import com.alibaba.druid.sql.ast.statement.*;
 import com.alibaba.druid.sql.dialect.mysql.ast.*;
 import com.alibaba.druid.sql.dialect.mysql.ast.expr.MySqlOutFileExpr;
-import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlSelectGroupBy;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlSelectQueryBlock;
-import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlUnionQuery;
 import com.alibaba.druid.sql.parser.ParserException;
 import com.alibaba.druid.sql.parser.SQLExprParser;
 import com.alibaba.druid.sql.parser.SQLSelectParser;
@@ -203,6 +202,7 @@ public class ElasticSqlSelectParser extends SQLSelectParser {
         }
     }
 
+    @Override
     protected void parseGroupBy(SQLSelectQueryBlock queryBlock) {
         SQLSelectGroupByClause groupBy = null;
 
@@ -213,7 +213,9 @@ public class ElasticSqlSelectParser extends SQLSelectParser {
             accept(Token.BY);
 
             while (true) {
-                groupBy.addItem(this.getExprParser().parseSelectGroupByItem());
+                for (SQLExpr item : this.getExprParser().parseSelectGroupByItem().getItems()) {
+                    groupBy.addItem(item);
+                }
                 if (!(lexer.token() == (Token.COMMA))) {
                     break;
                 }
@@ -224,11 +226,11 @@ public class ElasticSqlSelectParser extends SQLSelectParser {
                 lexer.nextToken();
                 acceptIdentifier("ROLLUP");
 
-                MySqlSelectGroupBy mySqlGroupBy = new MySqlSelectGroupBy();
+                SQLSelectGroupByClause mySqlGroupBy = new SQLSelectGroupByClause();
                 for (SQLExpr sqlExpr : groupBy.getItems()) {
                     mySqlGroupBy.addItem(sqlExpr);
                 }
-                mySqlGroupBy.setRollUp(true);
+                mySqlGroupBy.setWithRollUp(true);
 
                 groupBy = mySqlGroupBy;
             }
@@ -246,6 +248,7 @@ public class ElasticSqlSelectParser extends SQLSelectParser {
         queryBlock.setGroupBy(groupBy);
     }
 
+    @Override
     protected SQLTableSource parseTableSourceRest(SQLTableSource tableSource) {
         if (identifierEquals("USING")) {
             return tableSource;
@@ -309,19 +312,21 @@ public class ElasticSqlSelectParser extends SQLSelectParser {
         accept(Token.RPAREN);
     }
 
-    protected MySqlUnionQuery createSQLUnionQuery() {
-        return new MySqlUnionQuery();
+    @Override
+    protected SQLUnionQuery createSQLUnionQuery() {
+        return new SQLUnionQuery();
     }
 
+    @Override
     public SQLUnionQuery unionRest(SQLUnionQuery union) {
         if (lexer.token() == Token.LIMIT) {
-            MySqlUnionQuery mysqlUnionQuery = (MySqlUnionQuery) union;
+            SQLUnionQuery mysqlUnionQuery = (SQLUnionQuery) union;
             mysqlUnionQuery.setLimit(parseLimit());
         }
         return super.unionRest(union);
     }
 
-    public MySqlSelectQueryBlock.Limit parseLimit() {
+    public SQLLimit parseLimit() {
         return ((ElasticSqlExprParser) this.exprParser).parseLimit();
     }
 

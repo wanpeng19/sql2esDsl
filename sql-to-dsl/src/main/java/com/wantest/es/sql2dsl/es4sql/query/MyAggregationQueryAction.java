@@ -7,15 +7,17 @@ import com.wantest.es.sql2dsl.es4sql.exception.SqlParseException;
 import com.wantest.es.sql2dsl.es4sql.query.maker.AggMaker;
 import com.wantest.es.sql2dsl.es4sql.query.maker.QueryMaker;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.join.aggregations.ChildrenAggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.BucketOrder;
 import org.elasticsearch.search.aggregations.bucket.nested.NestedAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.nested.ReverseNestedAggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +37,7 @@ public class MyAggregationQueryAction extends MyQueryAction {
     }
 
     @Override
-    public String explain(boolean isExact) throws SqlParseException {
+    public String explain(boolean isExact) throws SqlParseException, IOException {
         this.request = new SearchSourceBuilder();
 
 
@@ -123,15 +125,15 @@ public class MyAggregationQueryAction extends MyQueryAction {
                     TermsAggregationBuilder termsBuilder = (TermsAggregationBuilder) temp.value;
                     switch (temp.key) {
                         case "COUNT":
-                            termsBuilder.order(Terms.Order.count(isASC(order)));
+                            termsBuilder.order(BucketOrder.count(isASC(order)));
                             break;
                         case "KEY":
-                            termsBuilder.order(Terms.Order.term(isASC(order)));
+                            termsBuilder.order(BucketOrder.key(isASC(order)));
                             // add the sort to the request also so the results get sorted as well
                             request.sort(order.getName(), SortOrder.valueOf(order.getType()));
                             break;
                         case "FIELD":
-                            termsBuilder.order(Terms.Order.aggregation(order.getName(), isASC(order)));
+                            termsBuilder.order(BucketOrder.aggregation(order.getName(), isASC(order)));
                             break;
                         default:
                             throw new SqlParseException(order.getName() + " can not to order");
@@ -164,14 +166,20 @@ public class MyAggregationQueryAction extends MyQueryAction {
             }
         }
 
-        if (!refrence) lastAgg = aggMaker.makeGroupAgg(field, isExact);
+        if (!refrence) {
+            lastAgg = aggMaker.makeGroupAgg(field, isExact);
+        }
         
         return lastAgg;
     }
 
     private AggregationBuilder wrapNestedIfNeeded(AggregationBuilder nestedBuilder, boolean reverseNested) {
-        if (!reverseNested) return nestedBuilder;
-        if (reverseNested && !(nestedBuilder instanceof NestedAggregationBuilder)) return nestedBuilder;
+        if (!reverseNested) {
+            return nestedBuilder;
+        }
+        if (reverseNested && !(nestedBuilder instanceof NestedAggregationBuilder)) {
+            return nestedBuilder;
+        }
         //we need to jump back to root
         return AggregationBuilders.reverseNested(nestedBuilder.getName() + "_REVERSED").subAggregation(nestedBuilder);
     }
@@ -202,7 +210,7 @@ public class MyAggregationQueryAction extends MyQueryAction {
 
         String childType = field.getChildType();
 
-        childrenBuilder = AggregationBuilders.children(getChildrenAggName(field),childType);
+        childrenBuilder = new ChildrenAggregationBuilder(getChildrenAggName(field), childType);
 
         return childrenBuilder;
     }
@@ -242,11 +250,17 @@ public class MyAggregationQueryAction extends MyQueryAction {
     }
 
     private boolean insertFilterIfExistsAfter(AggregationBuilder agg, List<Field> groupBy, AggregationBuilder builder, int nextPosition, boolean isExact) throws SqlParseException {
-        if (groupBy.size() <= nextPosition) return false;
+        if (groupBy.size() <= nextPosition) {
+            return false;
+        }
         Field filterFieldCandidate = groupBy.get(nextPosition);
-        if (!(filterFieldCandidate instanceof MethodField)) return false;
+        if (!(filterFieldCandidate instanceof MethodField)) {
+            return false;
+        }
         MethodField methodField = (MethodField) filterFieldCandidate;
-        if (!methodField.getName().toLowerCase().equals("filter")) return false;
+        if (!methodField.getName().toLowerCase().equals("filter")) {
+            return false;
+        }
         builder.subAggregation(aggMaker.makeGroupAgg(filterFieldCandidate, isExact).subAggregation(agg));
         return true;
     }
@@ -277,7 +291,7 @@ public class MyAggregationQueryAction extends MyQueryAction {
         }
     }
 
-    private void explanFields(SearchSourceBuilder request, List<Field> fields, AggregationBuilder groupByAgg) throws SqlParseException {
+    private void explanFields(SearchSourceBuilder request, List<Field> fields, AggregationBuilder groupByAgg) throws SqlParseException, IOException {
         for (Field field : fields) {
             if (field instanceof MethodField) {
 

@@ -14,7 +14,7 @@
 		<elasticsearch.plugin.name>sql</elasticsearch.plugin.name>
 		<elasticsearch.plugin.site>true</elasticsearch.plugin.site>
 		<elasticsearch.plugin.jvm>true</elasticsearch.plugin.jvm>
-		<elasticsearch.version>5.4.1</elasticsearch.version>
+		<elasticsearch.version>7.9.3</elasticsearch.version>
 		<elasticsearch.plugin.classname>org.elasticsearch.plugin.nlpcn.SqlPlug</elasticsearch.plugin.classname>
 		<jackson.version>2.6.1</jackson.version>
 	</properties>
@@ -44,7 +44,7 @@
         <dependency>
             <groupId>org.locationtech.spatial4j</groupId>
             <artifactId>spatial4j</artifactId>
-            <version>0.6</version>
+            <version>0.8</version>
         </dependency>
 
 		<dependency>
@@ -94,7 +94,7 @@
 		<dependency>
 			<groupId>com.alibaba</groupId>
 			<artifactId>druid</artifactId>
-			<version>1.0.15</version>
+			<version>1.1.10</version>
 		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
@@ -183,20 +183,6 @@
 						<include>${runSuite}</include>
 					</includes>
 				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-gpg-plugin</artifactId>
-				<version>1.4</version>
-				<executions>
-					<execution>
-						<id>sign-artifacts</id>
-						<phase>verify</phase>
-						<goals>
-							<goal>sign</goal>
-						</goals>
-					</execution>
-				</executions>
 			</plugin>
 		</plugins>
 

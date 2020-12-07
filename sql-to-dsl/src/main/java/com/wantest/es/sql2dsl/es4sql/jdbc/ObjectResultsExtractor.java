@@ -1,18 +1,18 @@
 package com.wantest.es.sql2dsl.es4sql.jdbc;
 
+import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHitField;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.SingleBucketAggregation;
+import org.elasticsearch.search.aggregations.metrics.ExtendedStats;
+import org.elasticsearch.search.aggregations.metrics.GeoBounds;
 import org.elasticsearch.search.aggregations.metrics.NumericMetricsAggregation;
-import org.elasticsearch.search.aggregations.metrics.geobounds.GeoBounds;
-import org.elasticsearch.search.aggregations.metrics.percentiles.Percentiles;
-import org.elasticsearch.search.aggregations.metrics.stats.Stats;
-import org.elasticsearch.search.aggregations.metrics.stats.extended.ExtendedStats;
-import org.elasticsearch.search.aggregations.metrics.tophits.TopHits;
+import org.elasticsearch.search.aggregations.metrics.Percentiles;
+import org.elasticsearch.search.aggregations.metrics.Stats;
+import org.elasticsearch.search.aggregations.metrics.TopHits;
 import com.wantest.es.sql2dsl.es4sql.Util;
 
 import java.util.*;
@@ -247,8 +247,8 @@ public class ObjectResultsExtractor {
         Set<String> csvHeaders = new HashSet<>();
         for (SearchHit hit : hits) {
             Map<String, Object> doc = hit.getSourceAsMap();
-            Map<String, SearchHitField> fields = hit.getFields();
-            for (SearchHitField searchHitField : fields.values()) {
+            Map<String, DocumentField> fields = hit.getFields();
+            for (DocumentField searchHitField : fields.values()) {
                 doc.put(searchHitField.getName(), searchHitField.getValue());
             }
             mergeHeaders(csvHeaders, doc, flat);
